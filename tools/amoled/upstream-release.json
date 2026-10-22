@@ -1,0 +1,18 @@
+{
+  "upstream_repository": "reisxd/TizenTubeCobalt",
+  "upstream_version": "v2.0.3",
+  "upstream_release_id": 415402918,
+  "upstream_commit": "9809b5aae6d820c852bc6cf7095304fb1c92f31a",
+  "assets": {
+    "arm": {
+      "name": "cobalt-arm.apk",
+      "id": 648706189,
+      "sha256": "72a3527f520db3a1b414916ad96481244e451c41e272ae33344ae5e79abb37dd"
+    },
+    "arm64": {
+      "name": "cobalt-arm64.apk",
+      "id": 648708647,
+      "sha256": "4e3df211abb243cb06b06ba3676fe62c3d5b59baa47c1a0050cb180b3493e539"
+    }
+  }
+}

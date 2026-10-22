@@ -1,10 +1,24 @@
 name: Build AMOLED APKs
 
 on:
+  schedule:
+    - cron: '17 * * * *'
   workflow_dispatch:
+    inputs:
+      upstream_tag:
+        description: 'Official stable release tag; blank selects the latest'
+        type: string
+        default: ''
+      publish:
+        description: 'Push merged source to main and publish verified APKs (run from main)'
+        type: boolean
+        default: true
+      force_rebuild:
+        description: 'Build a new fork revision even if this official release was already built'
+        type: boolean
+        default: false
   push:
-    branches: [feature/amoled-pitch-black]
-    tags: ['amoled-*']
+    branches: [main, feature/amoled-pitch-black]
     paths:
       - tools/amoled/**
       - .github/workflows/amoled-apk.yml
@@ -13,34 +27,74 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: amoled-release
+  cancel-in-progress: false
+
 jobs:
   apk:
+    if: github.repository == 'shadow-pheonix/TizenTubeCobalt'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
           filter: blob:none
-          sparse-checkout: tools/amoled
+          sparse-checkout: |
+            tools/amoled
+            .github/workflows
+            third_party/blink/renderer/core/dom
+      - name: Test release planning and verification
+        run: python3 -m unittest discover -s tools/amoled/tests -v
+      - name: Check official releases
+        id: upstream
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPSTREAM_TAG: ${{ inputs.upstream_tag }}
+          FORCE_REBUILD: ${{ inputs.force_rebuild }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          options=()
+          if [[ "$FORCE_REBUILD" == true ]]; then options+=(--force); fi
+          python3 tools/amoled/upstream_release.py plan \
+            --repository "$GITHUB_REPOSITORY" \
+            --upstream-tag "$UPSTREAM_TAG" \
+            --output build/upstream-release.json \
+            --github-output "$GITHUB_OUTPUT" "${options[@]}"
+      - name: Merge official source and preserve AMOLED changes
+        if: steps.upstream.outputs.needs_build == 'true'
+        run: python3 tools/amoled/upstream_release.py merge-source --manifest build/upstream-release.json --base-commit "$GITHUB_SHA"
+      - name: Check merged automation
+        if: steps.upstream.outputs.needs_build == 'true'
+        run: python3 -m unittest discover -s tools/amoled/tests -v
       - uses: actions/setup-java@v4
+        if: steps.upstream.outputs.needs_build == 'true'
         with:
           distribution: temurin
           java-version: '17'
       - name: Install Android build tools
+        if: steps.upstream.outputs.needs_build == 'true'
         uses: android-actions/setup-android@v3
         with:
           packages: 'build-tools;35.0.0'
           log-accepted-android-sdk-licenses: false
-      - name: Download pinned official runtimes
+      - name: Download official release APKs
+        if: steps.upstream.outputs.needs_build == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release download v2.0.3 --repo reisxd/TizenTubeCobalt --pattern 'cobalt-*.apk' --dir build/upstream
-      - name: Check pinned feature bundle
+          UPSTREAM_TAG: ${{ steps.upstream.outputs.upstream_tag }}
+        run: gh release download "$UPSTREAM_TAG" --repo reisxd/TizenTubeCobalt --pattern 'cobalt-*.apk' --dir build/upstream
+      - name: Check pinned AMOLED feature bundle
+        if: steps.upstream.outputs.needs_build == 'true'
         run: |
           curl --fail --location --retry 3 'https://cdn.jsdelivr.net/gh/shadow-pheonix/TizenTube@amoled01/u.js' --output build/userscript.js
           grep -q 'enableAmoledTheme' build/userscript.js
           node --check build/userscript.js
       - name: Package and sign both APKs
+        if: steps.upstream.outputs.needs_build == 'true'
         env:
           AMOLED_KEYSTORE_BASE64: ${{ secrets.AMOLED_KEYSTORE_BASE64 }}
           AMOLED_STORE_PASSWORD: ${{ secrets.AMOLED_STORE_PASSWORD }}
@@ -55,13 +109,16 @@ jobs:
             python3 tools/amoled/build_apk.py \
               --arch "$arch" \
               --upstream-apk "build/upstream/cobalt-$arch.apk" \
+              --release-manifest build/upstream-release.json \
               --build-tools "$ANDROID_HOME/build-tools/35.0.0" \
               --keystore "$key_file" \
               --output "build/output/TizenTube-AMOLED-$arch.apk"
           done
+          cp build/upstream-release.json build/output/upstream-release.json
           cd build/output
           sha256sum *.apk > SHA256SUMS
       - uses: actions/upload-artifact@v4
+        if: steps.upstream.outputs.needs_build == 'true'
         with:
           name: TizenTube-AMOLED-APKs
           path: |
@@ -70,10 +127,31 @@ jobs:
             build/output/SHA256SUMS
           if-no-files-found: error
           retention-days: 30
-      - name: Publish release APKs
-        if: startsWith(github.ref, 'refs/tags/amoled-')
+      - name: Publish merged source and release APKs
+        if: >-
+          steps.upstream.outputs.needs_build == 'true' &&
+          github.ref == 'refs/heads/main' &&
+          (github.event_name == 'schedule' ||
+           (github.event_name == 'workflow_dispatch' && inputs.publish))
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "$GITHUB_REF_NAME" build/output/*.apk build/output/*.json build/output/SHA256SUMS --clobber
-    permissions:
-      contents: write
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.upstream.outputs.release_tag }}
+        run: |
+          python3 tools/amoled/upstream_release.py publish \
+            --manifest build/upstream-release.json \
+            --directory build/output \
+            --release-tag "$RELEASE_TAG" \
+            --repository "$GITHUB_REPOSITORY" \
+            --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+      - name: Summarize
+        if: success()
+        env:
+          NEEDS_BUILD: ${{ steps.upstream.outputs.needs_build }}
+          UPSTREAM_TAG: ${{ steps.upstream.outputs.upstream_tag }}
+          RELEASE_TAG: ${{ steps.upstream.outputs.release_tag }}
+        run: |
+          if [[ "$NEEDS_BUILD" == true ]]; then
+            echo "Built and verified ARM64 and ARM APKs from official $UPSTREAM_TAG. Target fork release: $RELEASE_TAG." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Official $UPSTREAM_TAG is already available as $RELEASE_TAG. No build needed." >> "$GITHUB_STEP_SUMMARY"
+          fi

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Package the pinned upstream native runtime with the forked feature loader."""
+"""Package a verified official native runtime with the forked feature loader."""
 
 import argparse
 import hashlib
@@ -11,11 +11,9 @@ import subprocess
 import tempfile
 import zipfile
 
-UPSTREAM_VERSION = "v2.0.3"
-UPSTREAM_SHA256 = {
-    "arm": "72a3527f520db3a1b414916ad96481244e451c41e272ae33344ae5e79abb37dd",
-    "arm64": "4e3df211abb243cb06b06ba3676fe62c3d5b59baa47c1a0050cb180b3493e539",
-}
+from upstream_release import read_manifest
+
+UPSTREAM_SIGNER_SHA256 = "378ea3935af1b95c32f6ce193f4ff7f420cdc2d7160c8c866d28d6a91042ec9a"
 ABIS = {"arm": "armeabi-v7a", "arm64": "arm64-v8a"}
 OLD_URL = b"https://cdn.jsdelivr.net/npm/@foxreis/tizentube/dist/userScript.js"
 NEW_URL = b"https://cdn.jsdelivr.net/gh/shadow-pheonix/TizenTube@amoled01/u.js"
@@ -30,6 +28,17 @@ def run(*args):
     subprocess.run([str(arg) for arg in args], check=True)
 
 
+def verify_official_signature(apksigner, apk):
+    result = subprocess.run(
+        [str(apksigner), "verify", "--verbose", "--print-certs", str(apk)],
+        check=True, capture_output=True, text=True,
+    )
+    print(result.stdout)
+    signers = re.findall(r"Signer #\d+ certificate SHA-256 digest: ([0-9a-f]+)", result.stdout)
+    if signers != [UPSTREAM_SIGNER_SHA256]:
+        raise ValueError("The official APK signing certificate changed; review before building")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--arch", choices=ABIS, required=True)
@@ -38,19 +47,22 @@ def main():
     parser.add_argument("--keystore", type=Path, required=True)
     parser.add_argument("--key-alias", default="amoled")
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--release-manifest", type=Path,
+                        default=Path(__file__).with_name("upstream-release.json"))
     args = parser.parse_args()
 
     if not os.environ.get("AMOLED_STORE_PASSWORD"):
         parser.error("AMOLED_STORE_PASSWORD must be set")
+    manifest = read_manifest(args.release_manifest)
     upstream_hash = digest(args.upstream_apk)
-    if upstream_hash != UPSTREAM_SHA256[args.arch]:
-        raise ValueError("Upstream APK checksum does not match the pinned release")
+    if upstream_hash != manifest["assets"][args.arch]["sha256"]:
+        raise ValueError("Upstream APK checksum does not match official release metadata")
     if len(OLD_URL) != len(NEW_URL):
         raise ValueError("The native loader URL replacement must have the same length")
 
     apksigner = args.build_tools / "apksigner"
     zipalign = args.build_tools / "zipalign"
-    run(apksigner, "verify", "--verbose", "--print-certs", args.upstream_apk)
+    verify_official_signature(apksigner, args.upstream_apk)
     native_path = f"lib/{ABIS[args.arch]}/libchrobalt.so"
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=args.output.parent) as directory:
@@ -92,9 +104,12 @@ def main():
     report = {
         "build_method": "repackaged official native runtime; not a full native compilation",
         "upstream_repository": "reisxd/TizenTubeCobalt",
-        "upstream_version": UPSTREAM_VERSION,
+        "upstream_version": manifest["upstream_version"],
+        "upstream_release_id": manifest["upstream_release_id"],
+        "upstream_commit": manifest["upstream_commit"],
         "architecture": ABIS[args.arch],
         "upstream_apk_sha256": upstream_hash,
+        "upstream_signer_sha256": UPSTREAM_SIGNER_SHA256,
         "userscript_url": NEW_URL.decode(),
         "native_library_before_sha256": native_before,
         "native_library_after_sha256": native_after,
