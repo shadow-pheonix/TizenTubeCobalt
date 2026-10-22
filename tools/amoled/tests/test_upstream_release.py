@@ -71,6 +71,11 @@ class ReleasePlanningTests(unittest.TestCase):
         self.manifest["assets"]["arm"]["sha256"] = "c" * 64
         self.assertTrue(sync.select_release(self.manifest, [release])[0])
 
+    def test_updated_feature_bundle_requires_a_new_build(self):
+        release = self.completed()
+        with patch.object(sync, "THEME_URL", sync.THEME_URL.replace("amoled02", "amoled03")):
+            self.assertTrue(sync.select_release(self.manifest, [release])[0])
+
     def test_missing_digests_or_apks_fail_before_build(self):
         for change in ("digest", "asset"):
             release = copy.deepcopy(self.release)

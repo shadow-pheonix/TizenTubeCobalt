@@ -4023,7 +4023,7 @@ void Document::ImplicitClose() {
 
       double epoch_time = base::Time::Now().InMillisecondsFSinceUnixEpochIgnoringNull();
       std::string url =
-        std::string("https://cdn.jsdelivr.net/gh/shadow-pheonix/TizenTube@amoled01/u.js?v=")
+        std::string("https://cdn.jsdelivr.net/gh/shadow-pheonix/TizenTube@amoled02/u.js?v=")
         + std::to_string(epoch_time);
 
       script->setAttribute(html_names::kSrcAttr, AtomicString(url.c_str()));
@@ -4035,7 +4035,7 @@ void Document::ImplicitClose() {
       // Use a small script to check if the JSDelivr is reachable.
       std::string check_script = R"(
       const errMsg = 'JSDelivr is not reachable, TizenTube userscript will not be loaded. This can happen due to network issues (such as your DNS server not resolving cdn.jsdelivr.net) or if your ISP is blocking access to JSDelivr.';
-        fetch('https://cdn.jsdelivr.net/gh/shadow-pheonix/TizenTube@amoled01/u.js', { method: 'HEAD' })
+        fetch('https://cdn.jsdelivr.net/gh/shadow-pheonix/TizenTube@amoled02/u.js', { method: 'HEAD' })
           .then(response => {
             if (!response.ok) {
               console.error('JSDelivr is not reachable. Status:', response.status);

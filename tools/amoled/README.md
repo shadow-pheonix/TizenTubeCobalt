@@ -3,10 +3,15 @@
 These APKs use the latest stable official native Android runtime, with its two
 userscript URLs redirected to the pinned public feature bundle:
 
-https://cdn.jsdelivr.net/gh/shadow-pheonix/TizenTube@amoled01/u.js
+https://cdn.jsdelivr.net/gh/shadow-pheonix/TizenTube@amoled02/u.js
 
 Feature source and browser checks:
 https://github.com/shadow-pheonix/TizenTube/tree/feature/amoled-pitch-black
+
+The `amoled02` bundle includes the saved default-resolution ceiling, best-lower
+resolution fallback, **Highest available**, reported video bitrates, and
+highest-bitrate selection among playable quality variants. See the feature
+fork's `docs/video-quality.md` for controls and platform limits.
 
 This is a repackaged runtime, **not a full Chromium/Cobalt native compilation**.
 The matching native source change is in
@@ -37,7 +42,7 @@ For a new official release it:
    publishes a release named `<official-tag>-amoled.<revision>`, containing both
    APKs, JSON provenance reports, official release metadata, and SHA256SUMS.
 
-Published builds are identified by the official release metadata plus their
+Published builds are identified by the official release metadata, feature-bundle URL, and their
 complete asset set, so hourly checks skip releases already processed. If an
 upload is interrupted, the next run resumes its draft. Releases remain drafts
 until all required assets are uploaded. A merge conflict, changed loader, missing

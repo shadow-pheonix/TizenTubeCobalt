@@ -18,7 +18,7 @@ REQUIRED_ASSETS = {
     "SHA256SUMS", "upstream-release.json",
 }
 OLD_URL = "https://cdn.jsdelivr.net/npm/@foxreis/tizentube/dist/userScript.js"
-THEME_URL = "https://cdn.jsdelivr.net/gh/shadow-pheonix/TizenTube@amoled01/u.js"
+THEME_URL = "https://cdn.jsdelivr.net/gh/shadow-pheonix/TizenTube@amoled02/u.js"
 SOURCE_PATH = "third_party/blink/renderer/core/dom/document.cc"
 
 
@@ -81,7 +81,8 @@ def make_manifest(release, commit):
 
 
 def marker(manifest):
-    fingerprint = hashlib.sha256(json.dumps(manifest, sort_keys=True).encode()).hexdigest()
+    build_inputs = {**manifest, "userscript_url": THEME_URL}
+    fingerprint = hashlib.sha256(json.dumps(build_inputs, sort_keys=True).encode()).hexdigest()
     return f"<!-- amoled-upstream:{fingerprint} -->"
 
 
@@ -190,6 +191,8 @@ def publish(args):
     notes = f"""AMOLED build of official **{manifest['upstream_version']}**.
 
 The official release source was merged with this fork's AMOLED loader. Both ARM64 and ARM32 APKs were built and signed on GitHub Actions with this fork's persistent signing key. Enable **TizenTube Settings → AMOLED / Pitch black theme**.
+
+**Video quality:** the playback quality menu exposes all playable resolutions and reported video bitrates, plus **Highest available**. Set **TizenTube Settings → Video Player Settings → Default resolution → 2160p** to request 2160p on each video, falling back to the best available lower resolution. **Prefer highest bitrate** selects the highest reported bitrate among playable variants at that resolution. Manual choices affect only the current video. Unknown bitrates are labeled unavailable; device and account restrictions still apply.
 
 These packages reuse the official native runtime; they are not a full Chromium/Cobalt compilation. Official input digests and signing certificate, output signatures, 16 KiB alignment, and unchanged APK entries were verified. JSON provenance reports and SHA256SUMS are attached. Physical Android TV playback has not been tested by this workflow.
 

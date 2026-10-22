@@ -90,8 +90,9 @@ jobs:
       - name: Check pinned AMOLED feature bundle
         if: steps.upstream.outputs.needs_build == 'true'
         run: |
-          curl --fail --location --retry 3 'https://cdn.jsdelivr.net/gh/shadow-pheonix/TizenTube@amoled01/u.js' --output build/userscript.js
+          curl --fail --location --retry 3 'https://cdn.jsdelivr.net/gh/shadow-pheonix/TizenTube@amoled02/u.js' --output build/userscript.js
           grep -q 'enableAmoledTheme' build/userscript.js
+          grep -q 'preferHighestBitrate' build/userscript.js
           node --check build/userscript.js
       - name: Package and sign both APKs
         if: steps.upstream.outputs.needs_build == 'true'
