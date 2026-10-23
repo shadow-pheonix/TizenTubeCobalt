@@ -60,6 +60,7 @@ public final class ForkUpdater {
   }
 
   public static String getVersion(Context context) {
+    VideoUpscaler.initialize(context);
     try { return metadata(context).getString("version"); }
     catch (Exception ignored) {
       try { return context.getPackageManager().getPackageInfo(context.getPackageName(), 0).versionName; }
@@ -73,6 +74,7 @@ public final class ForkUpdater {
   }
 
   public static boolean start(Context suppliedContext, Activity suppliedActivity, String command) {
+    if (VideoUpscaler.command(suppliedContext, command)) return true;
     if (dialogVisible || awaitingPermission) return false;
     final Context context = suppliedContext.getApplicationContext();
     final UpdatePolicy.Request request;

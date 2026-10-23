@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import urllib.request
 import zipfile
+from sgsr_shader import DESTINATION, generated_source
 
 TOOL_URL = "https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar"
 TOOL_SHA256 = "37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f"
@@ -19,6 +20,8 @@ def run(*args):
 
 
 def prepare(output, android_jar, build_tools):
+    if DESTINATION.read_text() != generated_source():
+        raise ValueError("Generated SGSR1 shader differs from its pinned source")
     output.mkdir(parents=True, exist_ok=True)
     tool = output / "baksmali.jar"
     if not tool.is_file():
@@ -32,10 +35,12 @@ def prepare(output, android_jar, build_tools):
     tests = output / "tests"
     for folder in (patcher, classes, tests):
         folder.mkdir(exist_ok=True)
-    run("javac", "-cp", tool, "-d", patcher, ROOT / "tools/amoled/android/DexUpdater.java")
+    run("javac", "-cp", tool, "-d", patcher, ROOT / "tools/amoled/android/DexUpdater.java", ROOT / "tools/amoled/android/DexVideoPatcher.java")
     run("javac", "-source", "8", "-target", "8", "-cp", android_jar, "-d", classes, *sorted(JAVA_SOURCES.glob("*.java")))
     run("javac", "-source", "8", "-target", "8", "-cp", classes, "-d", tests, ROOT / "tools/amoled/android/UpdatePolicyTest.java")
     run("java", "-cp", os.pathsep.join(map(str, (classes, tests))), "UpdatePolicyTest")
+    run("javac", "-source", "8", "-target", "8", "-cp", classes, "-d", tests, ROOT / "tools/amoled/android/UpscalePolicyTest.java")
+    run("java", "-cp", os.pathsep.join(map(str, (classes, tests))), "UpscalePolicyTest")
     jar = output / "updater.jar"
     with zipfile.ZipFile(jar, "w") as archive:
         for path in sorted(classes.rglob("*.class")):

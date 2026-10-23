@@ -342,6 +342,7 @@ class MediaCodecBridge {
 
           @Override
           public void onOutputFormatChanged(MediaCodec codec, MediaFormat format) {
+            dev.cobalt.updates.VideoUpscaler.outputFormat(codec, format);
             synchronized (mNativeBridgeLock) {
               if (mNativeMediaCodecBridge == 0) {
                 return;
@@ -756,7 +757,7 @@ class MediaCodecBridge {
 
       try {
         Log.i(TAG, "Calling MediaCodec.release(): codec=" + mCodecName);
-        mMediaCodec.get().release();
+        dev.cobalt.updates.VideoUpscaler.release(mMediaCodec.get());
       } catch (Exception e) {
         // The MediaCodec is stuck in a wrong state, possibly due to losing
         // the surface.
@@ -953,7 +954,7 @@ class MediaCodecBridge {
       }
 
       maybeSetMaxVideoInputSize(format);
-      mMediaCodec.get().configure(format, surface, crypto, flags);
+      dev.cobalt.updates.VideoUpscaler.configure(mMediaCodec.get(), format, surface, crypto, flags);
       return true;
     } catch (IllegalArgumentException e) {
       Log.e(TAG, "Cannot configure the video codec with IllegalArgumentException: ", e);

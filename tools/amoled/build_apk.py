@@ -87,11 +87,15 @@ def main():
                 run_updater_tool("java", "-cp", os.pathsep.join(map(str, (args.updater_dir / "patcher", args.updater_dir / "baksmali.jar"))),
                                  "DexUpdater", original_dex, destination, "--optional")
                 if destination.is_file():
-                    patched_dex[name] = destination.read_bytes()
+                    video_destination = directory / ("video-" + name)
+                    run_updater_tool("java", "-cp", os.pathsep.join(map(str, (args.updater_dir / "patcher", args.updater_dir / "baksmali.jar"))),
+                                     "DexVideoPatcher", destination, video_destination)
+                    patched_dex[name] = video_destination.read_bytes()
             if len(patched_dex) != 1:
                 raise ValueError("Expected exactly one dex containing the original JNI bridge")
             next_dex = max(int(re.search(r"([0-9]+)\.dex$", name).group(1)) if name != "classes.dex" else 1 for name in dex_names) + 1
         additions = {
+            "assets/sgsr1-LICENSE.txt": Path(__file__).with_name("vendor").joinpath("sgsr1/LICENSE").read_bytes(),
             f"classes{next_dex}.dex": (args.updater_dir / "classes.dex").read_bytes(),
             "assets/tizentube-fork.json": (json.dumps({
                 "version": args.fork_release_tag, "architecture": ABIS[args.arch],
@@ -149,6 +153,8 @@ def main():
         "architecture": ABIS[args.arch],
         "fork_version": args.fork_release_tag,
         "updater_bridge_methods": ["installAppFromURL", "getVersion", "getArchitecture"],
+        "video_upscaler": "Qualcomm SGSR1 external-OES single-pass",
+        "video_decoder_hooks": ["configureVideo:MediaCodec.configure", "release:MediaCodec.release", "onOutputFormatChanged"],
         "modified_dex_entries": sorted(patched_dex),
         "added_entries": sorted(additions),
         "updater_dex_sha256": hashlib.sha256(additions[f"classes{next_dex}.dex"]).hexdigest(),

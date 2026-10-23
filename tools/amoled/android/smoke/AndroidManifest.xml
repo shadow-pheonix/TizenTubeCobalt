@@ -1,0 +1,8 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="dev.cobalt.upscalertest">
+  <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="28" />
+  <application android:theme="@android:style/Theme.Material.NoActionBar" android:label="SGSR1 render test" android:debuggable="true">
+    <activity android:name=".SmokeActivity" android:screenOrientation="landscape" android:exported="true">
+      <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+    </activity>
+  </application>
+</manifest>
