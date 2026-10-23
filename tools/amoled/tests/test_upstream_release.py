@@ -73,7 +73,7 @@ class ReleasePlanningTests(unittest.TestCase):
 
     def test_updated_feature_bundle_requires_a_new_build(self):
         release = self.completed()
-        with patch.object(sync, "THEME_URL", sync.THEME_URL.replace("amoled02", "amoled03")):
+        with patch.object(sync, "THEME_URL", sync.THEME_URL + "?new-bundle"):
             self.assertTrue(sync.select_release(self.manifest, [release])[0])
 
     def test_missing_digests_or_apks_fail_before_build(self):

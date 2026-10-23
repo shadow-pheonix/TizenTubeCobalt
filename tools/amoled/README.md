@@ -3,17 +3,24 @@
 These APKs use the latest stable official native Android runtime, with its two
 userscript URLs redirected to the pinned public feature bundle:
 
-https://cdn.jsdelivr.net/gh/shadow-pheonix/TizenTube@amoled02/u.js
+https://cdn.jsdelivr.net/gh/shadow-pheonix/TizenTube@amoled03/u.js
 
 Feature source and browser checks:
 https://github.com/shadow-pheonix/TizenTube/tree/feature/amoled-pitch-black
 
-The `amoled02` bundle includes the saved default-resolution ceiling, best-lower
+The `amoled03` bundle includes in-app fork updates, the saved default-resolution ceiling, best-lower
 resolution fallback, **Highest available**, reported video bitrates, and
 highest-bitrate selection among playable quality variants. See the feature
 fork's `docs/video-quality.md` for controls and platform limits.
 
-This is a repackaged runtime, **not a full Chromium/Cobalt native compilation**.
+This is a repackaged runtime with a compiled Android updater, **not a full
+Chromium/Cobalt native compilation**. Three existing Java bridge methods are
+replaced to download verified fork updates and report the installed fork version
+and APK architecture. The rest of the dex classes are retained. The APK adds the
+compiled updater dex and `assets/tizentube-fork.json`, recording the exact fork
+release tag and architecture. Native updater source lives in
+`cobalt/android/apk/app/src/main/java/dev/cobalt/updates/`; the build compiles it
+with the Android SDK and checks its URL/version validation on the JVM.
 The matching native source change is in
 `third_party/blink/renderer/core/dom/document.cc`. Each URL replacement is the
 same byte length, preserving ELF layout. The build verifies upstream APK
@@ -42,7 +49,8 @@ For a new official release it:
    publishes a release named `<official-tag>-amoled.<revision>`, containing both
    APKs, JSON provenance reports, official release metadata, and SHA256SUMS.
 
-Published builds are identified by the official release metadata, feature-bundle URL, and their
+Published builds are identified by official release metadata, the feature-bundle
+URL, native updater source fingerprint, and their
 complete asset set, so hourly checks skip releases already processed. If an
 upload is interrupted, the next run resumes its draft. Releases remain drafts
 until all required assets are uploaded. A merge conflict, changed loader, missing
@@ -72,9 +80,13 @@ python3 tools/amoled/upstream_release.py plan \
   --repository shadow-pheonix/TizenTubeCobalt --upstream-tag v2.0.3 \
   --output build/upstream-release.json
 export AMOLED_STORE_PASSWORD='your-keystore-password'
+python3 tools/amoled/prepare_updater.py --output build/updater \
+  --android-jar "$ANDROID_HOME/platforms/android-35/android.jar" \
+  --build-tools "$ANDROID_HOME/build-tools/35.0.0"
 python3 tools/amoled/build_apk.py --arch arm64 \
   --upstream-apk build/upstream/cobalt-arm64.apk \
   --release-manifest build/upstream-release.json \
+  --fork-release-tag v2.0.3-amoled.4 --updater-dir build/updater \
   --build-tools "$ANDROID_HOME/build-tools/35.0.0" \
   --keystore /path/to/amoled-release.jks \
   --output build/TizenTube-AMOLED-arm64.apk
@@ -96,11 +108,26 @@ After installing, open **TizenTube Settings → AMOLED / Pitch black theme** and
 enable it. It takes effect immediately and is saved across restarts. Disable it
 to restore your previous custom navigation and content colors.
 
-The fork still uses the upstream updater. Installing an official update will
-require switching back to the upstream signature and will remove this fork's
-feature loader; use this fork's APKs to retain the theme feature.
+## In-app updates
+
+Install the release with the native fork updater once. Older APKs pin an older
+bundle, so they need this one-time manual update. After that, automatic checks
+run on startup and hourly while the app is open; the app does not check while
+closed. The updater selects this fork's matching ARM APK, downloads it and checks
+its digest, size, package, fork revision, architecture and installed signing key.
+It then asks **Install** or **Later**. Install opens Android's package installer,
+after requesting **Allow installs from this app** if necessary. The Android
+confirmation remains mandatory. Later keeps the verified file and postpones
+automatic prompts for 24 hours. Manual **Check for updates** bypasses that delay
+and reuses a matching verified download.
+
+The app reports the full installed fork revision, preventing repeated prompts
+for a feature-only update with the same official runtime version. Errors do not
+open the installer; partial downloads are removed. Both APK variants keep the
+existing fork signing key so settings and sign-in survive updates.
 
 Browser checks cover theme changes, persistence, dynamically added panels,
 custom-color restoration, CSP nonces, focus visibility, and transparent video
 surfaces. APK checks verify packaging, not playback on physical Android TV
-hardware.
+hardware. Browser update-flow checks use a mocked native bridge. Physical Android
+TV permission dialogs and the package installer still require device testing.

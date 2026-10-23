@@ -18,7 +18,7 @@ REQUIRED_ASSETS = {
     "SHA256SUMS", "upstream-release.json",
 }
 OLD_URL = "https://cdn.jsdelivr.net/npm/@foxreis/tizentube/dist/userScript.js"
-THEME_URL = "https://cdn.jsdelivr.net/gh/shadow-pheonix/TizenTube@amoled02/u.js"
+THEME_URL = "https://cdn.jsdelivr.net/gh/shadow-pheonix/TizenTube@amoled03/u.js"
 SOURCE_PATH = "third_party/blink/renderer/core/dom/document.cc"
 
 
@@ -81,7 +81,13 @@ def make_manifest(release, commit):
 
 
 def marker(manifest):
-    build_inputs = {**manifest, "userscript_url": THEME_URL}
+    root = Path(__file__).resolve().parents[2]
+    sources = [root / "cobalt/android/apk/app/src/main/java/dev/cobalt/updates/ForkUpdater.java",
+               root / "cobalt/android/apk/app/src/main/java/dev/cobalt/updates/UpdatePolicy.java",
+               root / "tools/amoled/android/DexUpdater.java", root / "tools/amoled/prepare_updater.py",
+               root / "tools/amoled/build_apk.py"]
+    native_fingerprint = hashlib.sha256(b"".join(path.read_bytes() for path in sources)).hexdigest()
+    build_inputs = {**manifest, "userscript_url": THEME_URL, "native_updater_sources": native_fingerprint}
     fingerprint = hashlib.sha256(json.dumps(build_inputs, sort_keys=True).encode()).hexdigest()
     return f"<!-- amoled-upstream:{fingerprint} -->"
 
@@ -180,6 +186,8 @@ def publish(args):
         with apk.open("rb") as stream:
             digest = hashlib.file_digest(stream, "sha256").hexdigest()
         if (report["apk_sha256"] != digest or
+                report.get("fork_version") != args.release_tag or
+                report["userscript_url"] != THEME_URL or
                 report["upstream_apk_sha256"] != manifest["assets"][arch]["sha256"] or
                 report["upstream_commit"] != manifest["upstream_commit"]):
             raise ValueError("APK provenance does not match this official release")
@@ -194,7 +202,9 @@ The official release source was merged with this fork's AMOLED loader. Both ARM6
 
 **Video quality:** the playback quality menu exposes all playable resolutions and reported video bitrates, plus **Highest available**. Set **TizenTube Settings → Video Player Settings → Default resolution → 2160p** to request 2160p on each video, falling back to the best available lower resolution. **Prefer highest bitrate** selects the highest reported bitrate among playable variants at that resolution. Manual choices affect only the current video. Unknown bitrates are labeled unavailable; device and account restrictions still apply.
 
-These packages reuse the official native runtime; they are not a full Chromium/Cobalt compilation. Official input digests and signing certificate, output signatures, 16 KiB alignment, and unchanged APK entries were verified. JSON provenance reports and SHA256SUMS are attached. Physical Android TV playback has not been tested by this workflow.
+**In-app fork updates:** after installing this release once, the app checks this fork at startup and hourly while open. It downloads the matching APK, verifies its digest, package, fork revision, architecture and signing key, then asks **Install** or **Later**. Install opens Android's package installer; if needed, Android first asks to allow installs from this app. Installation always requires your confirmation. Earlier APKs pin an older bundle and need this one-time manual update to gain the new updater.
+
+These packages reuse the official native runtime and add a compiled Android updater plus three narrowly patched Java bridge methods; they are not a full Chromium/Cobalt compilation. Official input digests and signing certificate, output signatures, 16 KiB alignment, and unchanged APK entries were verified. JSON provenance reports and SHA256SUMS are attached. Android policy checks and browser updater checks passed; physical Android TV installer behavior has not been tested by this workflow.
 
 Existing users of this fork can install updates over its previous APKs. Users of the official app must uninstall it first because its signing key differs; uninstalling clears local settings and sign-in.
 

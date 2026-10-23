@@ -23,6 +23,7 @@ on:
       - tools/amoled/**
       - .github/workflows/amoled-apk.yml
       - third_party/blink/renderer/core/dom/document.cc
+      - cobalt/android/**
 
 permissions:
   contents: read
@@ -46,6 +47,7 @@ jobs:
             tools/amoled
             .github/workflows
             third_party/blink/renderer/core/dom
+            cobalt/android
       - name: Test release planning and verification
         run: python3 -m unittest discover -s tools/amoled/tests -v
       - name: Check official releases
@@ -79,7 +81,7 @@ jobs:
         if: steps.upstream.outputs.needs_build == 'true'
         uses: android-actions/setup-android@v3
         with:
-          packages: 'build-tools;35.0.0'
+          packages: 'build-tools;35.0.0 platforms;android-35'
           log-accepted-android-sdk-licenses: false
       - name: Download official release APKs
         if: steps.upstream.outputs.needs_build == 'true'
@@ -87,18 +89,27 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           UPSTREAM_TAG: ${{ steps.upstream.outputs.upstream_tag }}
         run: gh release download "$UPSTREAM_TAG" --repo reisxd/TizenTubeCobalt --pattern 'cobalt-*.apk' --dir build/upstream
+      - name: Compile and test native updater
+        if: steps.upstream.outputs.needs_build == 'true'
+        run: |
+          python3 tools/amoled/prepare_updater.py \
+            --output build/updater \
+            --android-jar "$ANDROID_HOME/platforms/android-35/android.jar" \
+            --build-tools "$ANDROID_HOME/build-tools/35.0.0"
       - name: Check pinned AMOLED feature bundle
         if: steps.upstream.outputs.needs_build == 'true'
         run: |
-          curl --fail --location --retry 3 'https://cdn.jsdelivr.net/gh/shadow-pheonix/TizenTube@amoled02/u.js' --output build/userscript.js
+          curl --fail --location --retry 3 'https://cdn.jsdelivr.net/gh/shadow-pheonix/TizenTube@amoled03/u.js' --output build/userscript.js
           grep -q 'enableAmoledTheme' build/userscript.js
           grep -q 'preferHighestBitrate' build/userscript.js
+          grep -q 'shadow-pheonix/TizenTubeCobalt' build/userscript.js
           node --check build/userscript.js
       - name: Package and sign both APKs
         if: steps.upstream.outputs.needs_build == 'true'
         env:
           AMOLED_KEYSTORE_BASE64: ${{ secrets.AMOLED_KEYSTORE_BASE64 }}
           AMOLED_STORE_PASSWORD: ${{ secrets.AMOLED_STORE_PASSWORD }}
+          RELEASE_TAG: ${{ steps.upstream.outputs.release_tag }}
         shell: bash
         run: |
           set -euo pipefail
@@ -111,6 +122,8 @@ jobs:
               --arch "$arch" \
               --upstream-apk "build/upstream/cobalt-$arch.apk" \
               --release-manifest build/upstream-release.json \
+              --fork-release-tag "$RELEASE_TAG" \
+              --updater-dir build/updater \
               --build-tools "$ANDROID_HOME/build-tools/35.0.0" \
               --keystore "$key_file" \
               --output "build/output/TizenTube-AMOLED-$arch.apk"

@@ -153,6 +153,8 @@ android_library("cobalt_main_java") {
     "apk/app/src/main/java/dev/cobalt/coat/AudioPermissionRequester.java",
     "apk/app/src/main/java/dev/cobalt/coat/BaseCobaltActivity.java",
     "apk/app/src/main/java/dev/cobalt/coat/BaseStarboardBridge.java",
+    "apk/app/src/main/java/dev/cobalt/updates/ForkUpdater.java",
+    "apk/app/src/main/java/dev/cobalt/updates/UpdatePolicy.java",
     "apk/app/src/main/java/dev/cobalt/coat/CaptionSettings.java",
     "apk/app/src/main/java/dev/cobalt/coat/CobaltService.java",
     "apk/app/src/main/java/dev/cobalt/coat/CobaltSystemConfigChangeReceiver.java",

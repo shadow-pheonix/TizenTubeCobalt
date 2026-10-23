@@ -1037,60 +1037,12 @@ public class BaseStarboardBridge {
 
   @CalledByNative
   protected boolean installAppFromURL(String url) {
-    java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor();
-    android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
-    executor.execute(() -> {
-      java.io.File apkFile = new java.io.File(mAppContext.getFilesDir(), "downloaded_app.apk");
-      boolean success = false;
-      try (java.io.InputStream in = new java.net.URL(url).openStream();
-           java.io.OutputStream out = new java.io.FileOutputStream(apkFile)) {
-        byte[] buffer = new byte[8192];
-        int len;
-        long total = 0;
-        while ((len = in.read(buffer)) != -1) {
-          out.write(buffer, 0, len);
-          total += len;
-        }
-        out.flush();
-        success = true;
-      } catch (Exception e) {
-      }
-      if (success) {
-        mainHandler.post(() -> {
-          try {
-            android.net.Uri contentUri = androidx.core.content.FileProvider.getUriForFile(
-                mAppContext,
-                mAppContext.getPackageName() + ".fileprovider",
-                apkFile);
-            android.content.Intent installIntent = new android.content.Intent(android.content.Intent.ACTION_VIEW);
-            installIntent.setDataAndType(contentUri, "application/vnd.android.package-archive");
-            installIntent.setFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION | android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
-            Activity activity = mActivityHolder.get();
-            if (activity != null) {
-              activity.startActivity(installIntent);
-            } else {
-              mAppContext.startActivity(installIntent);
-            }
-          } catch (Exception e) {
-          }
-        });
-      } else {
-      }
-      executor.shutdown();
-    });
-    return true;
+    return dev.cobalt.updates.ForkUpdater.start(mAppContext, mActivityHolder.get(), url);
   }
 
   @CalledByNative
   protected String getVersion() {
-    try {
-      android.content.pm.PackageInfo packageInfo =
-          mAppContext.getPackageManager().getPackageInfo(mAppContext.getPackageName(), 0);
-      return packageInfo.versionName;
-    } catch (android.content.pm.PackageManager.NameNotFoundException e) {
-      Log.e(TAG, "Failed to get package info", e);
-      return "unknown";
-    }
+    return dev.cobalt.updates.ForkUpdater.getVersion(mAppContext);
   }
 
   @CalledByNative
@@ -1100,7 +1052,7 @@ public class BaseStarboardBridge {
 
   @CalledByNative
   protected String getArchitecture() {
-    return Build.SUPPORTED_ABIS[0];
+    return dev.cobalt.updates.ForkUpdater.getArchitecture(mAppContext);
   }
 
   @CalledByNative
