@@ -72,7 +72,7 @@ public class SmokeActivity extends Activity implements SurfaceHolder.Callback {
         int index = codec.dequeueOutputBuffer(info, 10000);
         if (index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) VideoUpscaler.outputFormat(codec, codec.getOutputFormat());
         if (index >= 0) {
-          codec.releaseOutputBuffer(index, true); frames++; Thread.sleep(40);
+          codec.releaseOutputBuffer(index, System.nanoTime() + 20_000_000L); frames++; Thread.sleep(40);
           if (frames == 8) { enhanced = capture(output); verifyCorners(enhanced); VideoUpscaler.command(this, "tizentube://upscaler/off"); }
           if (frames == 16) { bilinear = capture(output); verifyCorners(bilinear); VideoUpscaler.command(this, "tizentube://upscaler/quality"); }
           if (frames == 24) {

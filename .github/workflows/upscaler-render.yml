@@ -25,6 +25,10 @@ jobs:
         with:
           packages: 'build-tools;35.0.0 platforms;android-35'
           log-accepted-android-sdk-licenses: false
+      - name: Install video fixture encoder
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
       - run: python3 tools/amoled/build_render_test.py --sdk "$ANDROID_HOME" --output build/render-test
       - name: Enable emulator acceleration
         run: |

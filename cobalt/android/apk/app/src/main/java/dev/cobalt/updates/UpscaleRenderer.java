@@ -6,6 +6,7 @@ import android.opengl.EGLConfig;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
+import android.opengl.EGLExt;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
 import android.os.Handler;
@@ -144,6 +145,12 @@ public final class UpscaleRenderer {
       GLES20.glVertexAttribPointer(position, 2, GLES20.GL_FLOAT, false, 0, vertices);
       GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
       check(GLES20.glGetError() == GLES20.GL_NO_ERROR, "SGSR1 draw error");
+      // Native releaseOutputBufferAtTimestamp uses System.nanoTime. SurfaceTexture
+      // retains that timestamp but does not itself schedule SurfaceView presentation.
+      // Forward it to the final window so video keeps the player's audio clock.
+      long timestamp = texture.getTimestamp(), now = System.nanoTime();
+      EGLExt.eglPresentationTimeANDROID(display, window,
+          timestamp > now - 1_000_000_000L && timestamp < now + 1_000_000_000L ? timestamp : now);
       check(EGL14.eglSwapBuffers(display, window), "eglSwapBuffers");
       long end = System.nanoTime();
       // A conservative queue-stall guard, not a claimed GPU benchmark. No glFinish/readback.
