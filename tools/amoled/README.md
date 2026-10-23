@@ -3,12 +3,12 @@
 These APKs use the latest stable official native Android runtime, with its two
 userscript URLs redirected to the pinned public feature bundle:
 
-https://cdn.jsdelivr.net/gh/shadow-pheonix/TizenTube@amoled03/u.js
+https://cdn.jsdelivr.net/gh/shadow-pheonix/TizenTube@amoled04/u.js
 
 Feature source and browser checks:
 https://github.com/shadow-pheonix/TizenTube/tree/feature/amoled-pitch-black
 
-The `amoled03` bundle includes in-app fork updates, the saved default-resolution ceiling, best-lower
+The `amoled04` bundle includes SGSR1 video upscaling controls, in-app fork updates, the saved default-resolution ceiling, best-lower
 resolution fallback, **Highest available**, reported video bitrates, and
 highest-bitrate selection among playable quality variants. See the feature
 fork's `docs/video-quality.md` for controls and platform limits.
@@ -16,7 +16,9 @@ fork's `docs/video-quality.md` for controls and platform limits.
 This is a repackaged runtime with a compiled Android updater, **not a full
 Chromium/Cobalt native compilation**. Three existing Java bridge methods are
 replaced to download verified fork updates and report the installed fork version
-and APK architecture. The rest of the dex classes are retained. The APK adds the
+and APK architecture. Three additional, validated decoder hooks redirect video
+configuration/release and observe output-format changes for the GPU upscaler.
+Other decoder logic, exception handlers and classes are retained. The APK adds the
 compiled updater dex and `assets/tizentube-fork.json`, recording the exact fork
 release tag and architecture. Native updater source lives in
 `cobalt/android/apk/app/src/main/java/dev/cobalt/updates/`; the build compiles it
@@ -86,7 +88,7 @@ python3 tools/amoled/prepare_updater.py --output build/updater \
 python3 tools/amoled/build_apk.py --arch arm64 \
   --upstream-apk build/upstream/cobalt-arm64.apk \
   --release-manifest build/upstream-release.json \
-  --fork-release-tag v2.0.3-amoled.4 --updater-dir build/updater \
+  --fork-release-tag v2.0.3-amoled.5 --updater-dir build/updater \
   --build-tools "$ANDROID_HOME/build-tools/35.0.0" \
   --keystore /path/to/amoled-release.jks \
   --output build/TizenTube-AMOLED-arm64.apk
@@ -97,6 +99,46 @@ Use `--arch arm` and the ARM APK for the 32-bit variant.
 Run `python3 -m unittest discover -s tools/amoled/tests -v` to check release
 selection, duplicate prevention, draft retries, input validation, signer checks,
 successful source merging, and merge-conflict behavior.
+
+## SGSR1 video upscaling
+
+**TizenTube Settings → Video Player Settings → Video upscaler (SGSR1)** provides
+Off, Auto (default), and Quality. Start the next video after changing it.
+SGSR1 only runs when both dimensions are meaningfully enlarged; native-resolution
+frames and downscales use bilinear in an attached renderer. Off uses direct decoder
+output on the next decoder. Auto switches an attached renderer to bilinear after
+at least 10 sustained wall-time stalls in a 60-frame window. This is a conservative
+queue-stall guard, not a GPU timer or FPS/battery benchmark.
+
+The fork adapts the BSD-licensed [Qualcomm SGSR1 mobile shader](https://github.com/SnapdragonGameStudios/snapdragon-gsr/tree/d926f074bcb9d714e179f1ce0fcb9ee2eeb5074e/sgsr/v1)
+to GLES2 external-OES textures. Its 12-tap filter and sharpening execute in one
+draw, sampling decoder buffers directly. The GLES adaptation emulates green-channel
+texture gathers with texel-center samples, applies the decoder's SurfaceTexture
+crop/flip, and guards flat-image divisions. The pinned original and license are in
+`vendor/sgsr1`; `sgsr_shader.py` reproducibly generates `SgsrShader.java`. Each APK
+includes `assets/sgsr1-LICENSE.txt`. There is no model download, CPU pixel copy,
+readback or intermediate full-resolution filter image. Android still needs decoder
+and output window buffers, so the extra renderer has a real memory/bandwidth cost.
+
+Only Cobalt's recognized display SurfaceView is intercepted. Protected/secure,
+encrypted, tunneled, HDR/BT.2020 and decode-to-texture paths retain direct output.
+Failure to initialize the GPU retains direct output; a lost render surface releases
+resources and attempts to restore direct output if the player still owns a valid
+surface. The final EGL surface receives the scheduled decoder timestamp to preserve
+presentation timing. Source counterparts of the narrow dex hooks live in
+`MediaCodecBridge.java`; changes to their upstream signatures stop packaging.
+
+The Android emulator check decodes a generated AVC clip through the actual helper,
+captures the output surface, verifies orientation/color, confirms SGSR1 differs from
+bilinear and Quality restores it, checks cropped dimensions, and recreates the
+renderer. Every new APK build must pass it before publishing. The standalone
+**Verify Android video upscaler** workflow runs it on feature pushes too. Screenshots
+and logs are Actions artifacts. This validates the Android GL/codec path on an
+emulator, not physical ARM/Mali/Adreno performance or live YouTube playback.
+
+Comparison of SGSR1, FSR1, Anime4K Android players, Real-ESRGAN/NCNN and Arm ASR,
+plus user-facing limitations, is in the feature fork's
+[video-upscaler.md](https://github.com/shadow-pheonix/TizenTube/blob/feature/amoled-pitch-black/docs/video-upscaler.md).
 
 ## Install and enable
 

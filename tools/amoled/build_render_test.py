@@ -3,6 +3,7 @@
 import argparse
 from pathlib import Path
 import subprocess
+import shutil
 import zipfile
 from prepare_updater import prepare, ROOT, run
 
@@ -31,7 +32,11 @@ def main():
             color = ((255, 0, 0) if x < 160 else (0, 220, 0)) if y < 90 else ((0, 0, 255) if x < 160 else (120, 120, 120))
             if 80 < x < 240 and 40 < y < 140: color = (240, 240, 240) if ((x + 2 * y) // 3) % 2 else (20, 20, 20)
             raw.extend(color)
-    subprocess.run(["ffmpeg", "-y", "-f", "rawvideo", "-pixel_format", "rgb24", "-video_size", "320x180", "-framerate", "30", "-i", "pipe:0",
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        from imageio_ffmpeg import get_ffmpeg_exe
+        ffmpeg = get_ffmpeg_exe()
+    subprocess.run([ffmpeg, "-y", "-f", "rawvideo", "-pixel_format", "rgb24", "-video_size", "320x180", "-framerate", "30", "-i", "pipe:0",
                     "-vf", "loop=loop=89:size=1:start=0", "-frames:v", "90", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "16", str(assets / "fixture.mp4")], input=raw, check=True)
     unsigned = output / "unsigned.apk"
     run(tools / "aapt", "package", "-f", "-M", smoke / "AndroidManifest.xml", "-I", android,

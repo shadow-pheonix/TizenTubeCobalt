@@ -18,7 +18,7 @@ REQUIRED_ASSETS = {
     "SHA256SUMS", "upstream-release.json",
 }
 OLD_URL = "https://cdn.jsdelivr.net/npm/@foxreis/tizentube/dist/userScript.js"
-THEME_URL = "https://cdn.jsdelivr.net/gh/shadow-pheonix/TizenTube@amoled03/u.js"
+THEME_URL = "https://cdn.jsdelivr.net/gh/shadow-pheonix/TizenTube@amoled04/u.js"
 SOURCE_PATH = "third_party/blink/renderer/core/dom/document.cc"
 
 
@@ -82,9 +82,10 @@ def make_manifest(release, commit):
 
 def marker(manifest):
     root = Path(__file__).resolve().parents[2]
-    sources = [root / "cobalt/android/apk/app/src/main/java/dev/cobalt/updates/ForkUpdater.java",
-               root / "cobalt/android/apk/app/src/main/java/dev/cobalt/updates/UpdatePolicy.java",
+    sources = [*sorted((root / "cobalt/android/apk/app/src/main/java/dev/cobalt/updates").glob("*.java")),
                root / "tools/amoled/android/DexUpdater.java", root / "tools/amoled/prepare_updater.py",
+               root / "tools/amoled/android/DexVideoPatcher.java", root / "tools/amoled/sgsr_shader.py",
+               root / "tools/amoled/vendor/sgsr1/sgsr1_shader_mobile.frag", root / "tools/amoled/vendor/sgsr1/LICENSE",
                root / "tools/amoled/build_apk.py"]
     native_fingerprint = hashlib.sha256(b"".join(path.read_bytes() for path in sources)).hexdigest()
     build_inputs = {**manifest, "userscript_url": THEME_URL, "native_updater_sources": native_fingerprint}
@@ -204,7 +205,9 @@ The official release source was merged with this fork's AMOLED loader. Both ARM6
 
 **In-app fork updates:** after installing this release once, the app checks this fork at startup and hourly while open. It downloads the matching APK, verifies its digest, package, fork revision, architecture and signing key, then asks **Install** or **Later**. Install opens Android's package installer; if needed, Android first asks to allow installs from this app. Installation always requires your confirmation. Earlier APKs pin an older bundle and need this one-time manual update to gain the new updater.
 
-These packages reuse the official native runtime and add a compiled Android updater plus three narrowly patched Java bridge methods; they are not a full Chromium/Cobalt compilation. Official input digests and signing certificate, output signatures, 16 KiB alignment, and unchanged APK entries were verified. JSON provenance reports and SHA256SUMS are attached. Android policy checks and browser updater checks passed; physical Android TV installer behavior has not been tested by this workflow.
+**Video upscaler:** open **TizenTube Settings → Video Player Settings → Video upscaler (SGSR1)** and choose **Auto**, **Quality**, or **Off**; start the next video after changing it. Auto is the default and uses a single GPU shader pass for eligible SDR enlargements, falling back to bilinear on sustained renderer stalls. Quality keeps edge-aware upscaling enabled when enlarging video. HDR, protected, tunneled and decode-to-texture output bypass the filter. Native-resolution frames are not sharpened. Source quality/bitrate selection is preserved. [Research, alternatives and limitations](https://github.com/shadow-pheonix/TizenTube/blob/amoled04/docs/video-upscaler.md).
+
+These packages reuse the official native runtime and add compiled Android updater/upscaler helpers, three narrowly patched Java bridge methods and three decoder hooks; they are not a full Chromium/Cobalt compilation. Official input digests and signing certificate, output signatures, 16 KiB alignment, and unchanged APK entries were verified. JSON provenance reports and SHA256SUMS are attached. Android policy checks, browser settings checks and an Android emulator decoder/GPU smoke check passed. Physical Android TV playback, GPU performance, HDR transitions and installer behavior still require device testing; no physical-device FPS or battery improvement is claimed.
 
 Existing users of this fork can install updates over its previous APKs. Users of the official app must uninstall it first because its signing key differs; uninstalling clears local settings and sign-in.
 

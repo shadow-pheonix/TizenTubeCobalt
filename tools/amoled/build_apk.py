@@ -17,7 +17,7 @@ from upstream_release import read_manifest
 UPSTREAM_SIGNER_SHA256 = "378ea3935af1b95c32f6ce193f4ff7f420cdc2d7160c8c866d28d6a91042ec9a"
 ABIS = {"arm": "armeabi-v7a", "arm64": "arm64-v8a"}
 OLD_URL = b"https://cdn.jsdelivr.net/npm/@foxreis/tizentube/dist/userScript.js"
-NEW_URL = b"https://cdn.jsdelivr.net/gh/shadow-pheonix/TizenTube@amoled03/u.js"
+NEW_URL = b"https://cdn.jsdelivr.net/gh/shadow-pheonix/TizenTube@amoled04/u.js"
 
 
 def digest(path):

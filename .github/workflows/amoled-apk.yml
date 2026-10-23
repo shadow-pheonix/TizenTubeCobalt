@@ -96,12 +96,37 @@ jobs:
             --output build/updater \
             --android-jar "$ANDROID_HOME/platforms/android-35/android.jar" \
             --build-tools "$ANDROID_HOME/build-tools/35.0.0"
+      - name: Build Android renderer smoke test
+        if: steps.upstream.outputs.needs_build == 'true'
+        run: |
+          python3 -m pip install --only-binary=:all: --no-deps imageio-ffmpeg==0.6.0
+          python3 tools/amoled/build_render_test.py --sdk "$ANDROID_HOME" --output build/render-test
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Verify real Android decoder and SGSR1 shader output
+        if: steps.upstream.outputs.needs_build == 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          arch: x86_64
+          target: default
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash tools/amoled/run_render_test.sh
+      - name: Save Android renderer verification
+        if: always() && steps.upstream.outputs.needs_build == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android-SGSR1-render-check
+          path: build/render-results
       - name: Check pinned AMOLED feature bundle
         if: steps.upstream.outputs.needs_build == 'true'
         run: |
-          curl --fail --location --retry 3 'https://cdn.jsdelivr.net/gh/shadow-pheonix/TizenTube@amoled03/u.js' --output build/userscript.js
+          curl --fail --location --retry 3 'https://cdn.jsdelivr.net/gh/shadow-pheonix/TizenTube@amoled04/u.js' --output build/userscript.js
           grep -q 'enableAmoledTheme' build/userscript.js
           grep -q 'preferHighestBitrate' build/userscript.js
+          grep -q 'videoUpscaler' build/userscript.js
           grep -q 'shadow-pheonix/TizenTubeCobalt' build/userscript.js
           node --check build/userscript.js
       - name: Package and sign both APKs

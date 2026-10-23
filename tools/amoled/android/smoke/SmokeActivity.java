@@ -36,7 +36,7 @@ public class SmokeActivity extends Activity implements SurfaceHolder.Callback {
       try {
         runDecoder(holder.getSurface(), 0);
         runDecoder(holder.getSurface(), 1);
-        result("PASS: decoded SDR, orientation, color, SGSR1/bilinear difference, adaptive size, teardown/recreate");
+        result("PASS: decoded SDR, orientation, color, SGSR1/bilinear difference, format/crop handling, teardown/recreate");
       } catch (Throwable error) {
         android.util.Log.e("SGSR1_TEST", "FAIL", error);
         result("FAIL: " + error.toString());
@@ -87,7 +87,15 @@ public class SmokeActivity extends Activity implements SurfaceHolder.Callback {
             try (FileOutputStream screenshot = new FileOutputStream(new File(getFilesDir(), "sgsr1-" + cycle + ".png"))) {
               quality.compress(Bitmap.CompressFormat.PNG, 100, screenshot);
             }
-            // Test an adaptive format/crop update without reallocating full-size textures.
+            // Check the actual cropped dimensions used by the shader policy.
+            MediaFormat cropped = MediaFormat.createVideoFormat("video/avc", 320, 180);
+            cropped.setInteger("crop-left", 8); cropped.setInteger("crop-right", 311);
+            cropped.setInteger("crop-top", 4); cropped.setInteger("crop-bottom", 175);
+            VideoUpscaler.outputFormat(codec, cropped);
+            Object renderer = ((java.util.Map) active.get(null)).get(codec);
+            java.lang.reflect.Field w = renderer.getClass().getDeclaredField("width"); w.setAccessible(true);
+            java.lang.reflect.Field h = renderer.getClass().getDeclaredField("height"); h.setAccessible(true);
+            if (w.getInt(renderer) != 304 || h.getInt(renderer) != 172) throw new AssertionError("Cropped format dimensions ignored");
             VideoUpscaler.outputFormat(codec, format);
           }
         }
