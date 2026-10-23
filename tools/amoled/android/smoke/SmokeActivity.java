@@ -36,7 +36,8 @@ public class SmokeActivity extends Activity implements SurfaceHolder.Callback {
       try {
         runDecoder(holder.getSurface(), 0);
         runDecoder(holder.getSurface(), 1);
-        result("PASS: decoded SDR, orientation, color, SGSR1/bilinear difference, format/crop handling, teardown/recreate");
+        verifyNativeBypass(holder.getSurface());
+        result("PASS: decoded SDR, orientation, color, SGSR1/bilinear difference, format/crop handling, teardown/recreate, native-resolution bypass");
       } catch (Throwable error) {
         android.util.Log.e("SGSR1_TEST", "FAIL", error);
         result("FAIL: " + error.toString());
@@ -112,6 +113,17 @@ public class SmokeActivity extends Activity implements SurfaceHolder.Callback {
     PixelCopy.request(output, bitmap, value -> { status[0] = value; ready.countDown(); }, new Handler(Looper.getMainLooper()));
     if (!ready.await(3, TimeUnit.SECONDS) || status[0] != PixelCopy.SUCCESS) throw new AssertionError("PixelCopy: " + status[0]);
     return bitmap;
+  }
+
+  private void verifyNativeBypass(Surface output) throws Exception {
+    MediaFormat format = MediaFormat.createVideoFormat("video/avc", 640, 360);
+    MediaCodec codec = MediaCodec.createDecoderByType("video/avc");
+    try {
+      VideoUpscaler.command(this, "tizentube://upscaler/auto");
+      VideoUpscaler.configure(codec, format, output, null, 0);
+      java.lang.reflect.Field active = VideoUpscaler.class.getDeclaredField("ACTIVE"); active.setAccessible(true);
+      if (!((java.util.Map) active.get(null)).isEmpty()) throw new AssertionError("Native-resolution output added a renderer");
+    } finally { VideoUpscaler.release(codec); }
   }
 
   private static void verifyCorners(Bitmap bitmap) {

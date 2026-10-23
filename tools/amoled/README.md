@@ -104,8 +104,10 @@ successful source merging, and merge-conflict behavior.
 
 **TizenTube Settings → Video Player Settings → Video upscaler (SGSR1)** provides
 Off, Auto (default), and Quality. Start the next video after changing it.
-SGSR1 only runs when both dimensions are meaningfully enlarged; native-resolution
-frames and downscales use bilinear in an attached renderer. Off uses direct decoder
+SGSR1 only runs when both dimensions are meaningfully enlarged. Videos initially
+at or above the output surface resolution keep the direct hardware path. If an
+attached stream later adapts upward, native-resolution frames/downscales use bilinear.
+Off uses direct decoder
 output on the next decoder. Auto switches an attached renderer to bilinear after
 at least 10 sustained wall-time stalls in a 60-frame window. This is a conservative
 queue-stall guard, not a GPU timer or FPS/battery benchmark.

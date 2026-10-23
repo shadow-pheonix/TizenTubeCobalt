@@ -65,6 +65,7 @@ public final class VideoUpscaler {
     UpscaleRenderer renderer = null;
     if (context != null && UpscalePolicy.eligible(mode, width, height, secure, hdr(format), tunneled, displaySurface(surface))) {
       try { renderer = UpscaleRenderer.create(surface, width, height, mode); }
+      catch (UpscaleRenderer.NotNeeded ignored) { /* Native/downscale: keep the hardware path. */ }
       catch (Exception error) { Log.w(TAG, "GPU initialization failed; keeping direct video output", error); }
     }
     if (renderer == null) { codec.configure(format, surface, crypto, flags); return; }

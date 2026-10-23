@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 
 /** One external-OES draw per decoded frame. No readback or intermediate full-size texture. */
 public final class UpscaleRenderer {
+  public static final class NotNeeded extends RuntimeException {}
   private static final String TAG = "TizenTubeUpscaler";
   private final Surface output;
   private final HandlerThread thread = new HandlerThread("TizenTube-SGSR1");
@@ -85,6 +86,11 @@ public final class UpscaleRenderer {
     window = EGL14.eglCreateWindowSurface(display, configs[0], output, new int[] {EGL14.EGL_NONE}, 0);
     check(window != EGL14.EGL_NO_SURFACE, "eglCreateWindowSurface");
     check(EGL14.eglMakeCurrent(display, window, window, context), "eglMakeCurrent");
+    check(EGL14.eglQuerySurface(display, window, EGL14.EGL_WIDTH, dimensions, 0), "initial output width");
+    check(EGL14.eglQuerySurface(display, window, EGL14.EGL_HEIGHT, dimensions, 1), "initial output height");
+    float fit = Math.min((float) dimensions[0] / width, (float) dimensions[1] / height);
+    if (!UpscalePolicy.upscale(mode, width, height, Math.round(width * fit), Math.round(height * fit), false))
+      throw new NotNeeded();
     EGL14.eglSwapInterval(display, 0);
     String extensions = GLES20.glGetString(GLES20.GL_EXTENSIONS);
     check(extensions != null && extensions.contains("GL_OES_EGL_image_external"), "External video textures unsupported");
